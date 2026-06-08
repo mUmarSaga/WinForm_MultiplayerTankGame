@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,23 +9,19 @@ namespace OOP_GAME.Model
     // Models/HeavyTank.cs
     public class HeavyTank : Tank
     {
-        public int ArmorRating { get; set; }   // reduces incoming damage
-
         public HeavyTank(string playerName, int teamId) : base(playerName, teamId)
         {
-            MaxHealth = 200;
+            MaxHealth = 200;  // same as HeavyTank
             Health = 200;
-            MaxFuel = 60;        // moves less
+            MaxFuel = 60;     // same
             Fuel = 60;
-            ArmorRating = 20;    // 20% damage reduction
-            Width = 80;
-            Height = 50;         // bigger sprite
+            Width = 80;       // same
+            Height = 50;
         }
 
         public override void TakeDamage(int amount)
         {
-            int reduced = amount - (amount * ArmorRating / 100);
-            Health = Math.Max(0, Health - reduced);
+            Health = Math.Max(0, Health - amount);
         }
 
         public override Projectile Fire()

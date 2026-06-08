@@ -1,4 +1,4 @@
-﻿namespace OOP_GAME.UI
+namespace OOP_GAME.UI
 {
     partial class MenuForm
     {

@@ -1,4 +1,4 @@
-﻿using OOP_GAME.Model;
+using OOP_GAME.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -57,12 +57,12 @@ namespace OOP_GAME.BL
         //  SETUP
         // ─────────────────────────────────────────────────────────────
 
-        public void StartGame(List<Tank> tanks)
+        public void StartGame(List<Tank> tanks, int seed, float wind)
         {
             Tanks = tanks;
 
             // generate terrain — Ground is now accessed via _terrain.Ground
-            _terrain.GenerateTerrain();
+            _terrain.GenerateTerrain(seed);
 
             // flatten spawn points so tanks don't start on steep slopes
             int spacing = PanelWidth / (Tanks.Count + 1);
@@ -83,7 +83,7 @@ namespace OOP_GAME.BL
                 tank.CurrentWeapon = tank.WeaponInventory[0];
             }
 
-            _physics.WindStrength = GenerateWind();
+            _physics.WindStrength = wind;
 
             _gameTimer = new Timer();
             _gameTimer.Interval = 16;
@@ -149,12 +149,7 @@ namespace OOP_GAME.BL
                     _physics.UpdateTank(tank, Ground);
             }
 
-            // AI turn
-            if (!IsProjectileFlying && !IsGameOver && CurrentTank.IsAI
-                && _activeSubProjectiles.Count == 0)
-            {
-                AiTakeTurn();
-            }
+
 
             OnTick?.Invoke();
         }
@@ -210,10 +205,15 @@ namespace OOP_GAME.BL
         //  TURN SYSTEM
         // ─────────────────────────────────────────────────────────────
 
-        public void PlayerFire()
+        public void PlayerFire(bool isLocalInput = true)
         {
-            if (!IsPlayerTurn || IsProjectileFlying || IsGameOver) return;
-            if (!CurrentTank.CurrentWeapon.CanFire()) return;
+            if (isLocalInput)
+            {
+                if (!IsLocalPlayersTurn() || IsProjectileFlying || IsGameOver) return;
+                if (!CurrentTank.CurrentWeapon.CanFire()) return;
+
+                NetworkManager.Instance.SendMessage($"FIRE:{CurrentTank.BarrelAngle},{CurrentTank.FirePower},{CurrentTank.WeaponInventory.IndexOf(CurrentTank.CurrentWeapon)}");
+            }
 
             float tipX, tipY;
             GetBarrelTip(CurrentTank, out tipX, out tipY);
@@ -225,34 +225,68 @@ namespace OOP_GAME.BL
             IsProjectileFlying = true;
         }
 
-        public void MoveCurrentTank(float direction)
+        public void MoveCurrentTank(float direction, bool isLocalInput = true)
         {
-            if (!IsPlayerTurn || IsProjectileFlying || IsGameOver) return;
-            if (CurrentTank.Fuel <= 0) return;
+            if (isLocalInput)
+            {
+                if (!IsLocalPlayersTurn() || IsProjectileFlying || IsGameOver) return;
+                if (CurrentTank.Fuel <= 0) return;
+
+                NetworkManager.Instance.SendMessage($"MOVE:{direction}");
+            }
 
             CurrentTank.X += direction * 3f; // just move X, physics snaps Y
             CurrentTank.Fuel -= 1;
         }
 
-        public void AdjustBarrelAngle(float delta)
+        public void AdjustBarrelAngle(float delta, bool isLocalInput = true)
         {
-            if (!IsPlayerTurn || IsProjectileFlying) return;
-            float newAngle = CurrentTank.BarrelAngle + delta;
-            CurrentTank.BarrelAngle = Math.Max(5f, Math.Min(newAngle, 175f));
+            if (isLocalInput)
+            {
+                if (!IsLocalPlayersTurn() || IsProjectileFlying) return;
+                float newAngle = CurrentTank.BarrelAngle + delta;
+                CurrentTank.BarrelAngle = Math.Max(5f, Math.Min(newAngle, 175f));
+
+                NetworkManager.Instance.SendMessage($"AIM:{CurrentTank.BarrelAngle}");
+            }
+            else
+            {
+                CurrentTank.BarrelAngle = delta;
+            }
         }
 
-        public void AdjustFirePower(float delta)
+        public void AdjustFirePower(float delta, bool isLocalInput = true)
         {
-            if (!IsPlayerTurn || IsProjectileFlying) return;
-            float newPower = CurrentTank.FirePower + delta;
-            CurrentTank.FirePower = Math.Max(5f, Math.Min(newPower, 100f));
+            if (isLocalInput)
+            {
+                if (!IsLocalPlayersTurn() || IsProjectileFlying) return;
+                float newPower = CurrentTank.FirePower + delta;
+                CurrentTank.FirePower = Math.Max(5f, Math.Min(newPower, 100f));
+
+                NetworkManager.Instance.SendMessage($"POWER:{CurrentTank.FirePower}");
+            }
+            else
+            {
+                CurrentTank.FirePower = delta;
+            }
         }
 
-        public void SwitchWeapon(int index)
+        public void SwitchWeapon(int index, bool isLocalInput = true)
         {
-            if (!IsPlayerTurn || IsProjectileFlying) return;
-            if (index < CurrentTank.WeaponInventory.Count)
-                CurrentTank.CurrentWeapon = CurrentTank.WeaponInventory[index];
+            if (isLocalInput)
+            {
+                if (!IsLocalPlayersTurn() || IsProjectileFlying) return;
+                if (index < CurrentTank.WeaponInventory.Count)
+                {
+                    CurrentTank.CurrentWeapon = CurrentTank.WeaponInventory[index];
+                    NetworkManager.Instance.SendMessage($"WEAPON:{index}");
+                }
+            }
+            else
+            {
+                if (index < CurrentTank.WeaponInventory.Count)
+                    CurrentTank.CurrentWeapon = CurrentTank.WeaponInventory[index];
+            }
         }
 
         private void NextTurn()
@@ -270,12 +304,98 @@ namespace OOP_GAME.BL
             if (CurrentTurnIndex == 0)
             {
                 RoundNumber++;
-                _physics.WindStrength = GenerateWind();
+                if (CurrentSession.Instance.IsHost)
+                {
+                    float wind = GenerateWind();
+                    _physics.WindStrength = wind;
+                    NetworkManager.Instance.SendMessage($"WIND:{wind}");
+                }
             }
 
             ActiveProjectile = null;
             OnTurnChanged?.Invoke(CurrentTank);
         }
+
+        public bool IsLocalPlayersTurn()
+        {
+            if (CurrentSession.Instance.IsHost)
+            {
+                return CurrentTurnIndex == 0;
+            }
+            else
+            {
+                return CurrentTurnIndex == 1;
+            }
+        }
+
+        public void HandleNetworkMessage(string message)
+        {
+            try
+            {
+                string[] parts = message.Split(':');
+                if (parts.Length < 2) return;
+
+                string type = parts[0];
+                string payload = parts[1];
+
+                if (type == "MOVE")
+                {
+                    if (float.TryParse(payload, out float dir))
+                    {
+                        MoveCurrentTank(dir, false);
+                    }
+                }
+                else if (type == "AIM")
+                {
+                    if (float.TryParse(payload, out float angle))
+                    {
+                        AdjustBarrelAngle(angle, false);
+                    }
+                }
+                else if (type == "POWER")
+                {
+                    if (float.TryParse(payload, out float power))
+                    {
+                        AdjustFirePower(power, false);
+                    }
+                }
+                else if (type == "WEAPON")
+                {
+                    if (int.TryParse(payload, out int index))
+                    {
+                        SwitchWeapon(index, false);
+                    }
+                }
+                else if (type == "FIRE")
+                {
+                    string[] fParts = payload.Split(',');
+                    if (fParts.Length == 3 &&
+                        float.TryParse(fParts[0], out float angle) &&
+                        float.TryParse(fParts[1], out float power) &&
+                        int.TryParse(fParts[2], out int weaponIndex))
+                    {
+                        CurrentTank.BarrelAngle = angle;
+                        CurrentTank.FirePower = power;
+                        if (weaponIndex < CurrentTank.WeaponInventory.Count)
+                            CurrentTank.CurrentWeapon = CurrentTank.WeaponInventory[weaponIndex];
+
+                        PlayerFire(false);
+                    }
+                }
+                else if (type == "WIND")
+                {
+                    if (float.TryParse(payload, out float wind))
+                    {
+                        _physics.WindStrength = wind;
+                    }
+                }
+            }
+            catch
+            {
+                // ignore parsing errors
+            }
+        }
+
         private void GetBarrelTip(Tank tank, out float tipX, out float tipY)
         {
             float centerX = tank.X + tank.Width / 2f;
@@ -318,43 +438,6 @@ namespace OOP_GAME.BL
                 _gameTimer.Stop();
                 OnGameOver?.Invoke(Winner);
             }
-        }
-
-        // ─────────────────────────────────────────────────────────────
-        //  AI
-        // ─────────────────────────────────────────────────────────────
-
-        private bool _aiIsThinking = false;
-
-        private void AiTakeTurn()
-        {
-            if (_aiIsThinking) return;
-            _aiIsThinking = true;
-
-            var ai = CurrentTank as AiTank;
-            if (ai == null) return;
-
-            Tank target = Tanks.FirstOrDefault(t => t.IsAlive && t.TeamId != ai.TeamId);
-            if (target == null) return;
-
-            float dx = target.X - ai.X;
-            float dy = ai.Y - target.Y;
-            float perfectAngle = (float)(Math.Atan2(dy, dx) * 180.0 / Math.PI);
-
-            var rng = new Random();
-            float error = (float)((1f - ai.AimAccuracy) * (rng.NextDouble() * 30 - 15));
-            float newAngle = perfectAngle + error;
-            ai.BarrelAngle = Math.Max(5f, Math.Min(newAngle, 175f));
-            ai.FirePower = 60f + (float)(rng.NextDouble() * 20);
-
-            Task.Delay(800).ContinueWith(_ =>
-            {
-                ActiveProjectile = ai.Fire();
-                ActiveProjectile.OwnerId = ai.TeamId;
-                ai.CurrentWeapon.UseAmmo();
-                IsProjectileFlying = true;
-                _aiIsThinking = false;
-            });
         }
 
         // ─────────────────────────────────────────────────────────────

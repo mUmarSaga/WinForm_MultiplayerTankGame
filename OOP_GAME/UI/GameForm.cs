@@ -1,4 +1,4 @@
-﻿using OOP_GAME.BL;
+using OOP_GAME.BL;
 using OOP_GAME.Model;
 using System;
 using System.Collections.Generic;
@@ -54,17 +54,15 @@ namespace OOP_GAME.UI
         {
             try
             {
-                _Tank1Body = Image.FromFile(Model.CurrentSession.Player1BodyImage);
-                _Tank1Cannon = Image.FromFile(Model.CurrentSession.Player1CannonImage);
-                _Tank2Body = Image.FromFile(Model.CurrentSession.Player2BodyImage);
-                _Tank2Cannon = Image.FromFile(Model.CurrentSession.Player2CannonImage);
-                
+                _Tank1Body = Image.FromFile("assets/heavyTank1Body.png");
+                _Tank1Cannon = Image.FromFile("assets/heavyTank1Cannon.png");
+                _Tank2Body = Image.FromFile("assets/heavyTank2Body.png");
+                _Tank2Cannon = Image.FromFile("assets/heavyTank2Cannon.png");
             }
             catch
             {
                 // sprites not found — will fall back to drawing rectangles
             }
-            
         }
         private void GameForm_Load(object sender, EventArgs e)
         {
@@ -79,21 +77,19 @@ namespace OOP_GAME.UI
         {
             _engine = new GameEngine(this.ClientSize.Width, this.ClientSize.Height);
 
+            string hostName = CurrentSession.Instance.IsHost ? CurrentSession.Instance.LocalPlayerName : CurrentSession.Instance.RemotePlayerName;
+            string guestName = CurrentSession.Instance.IsHost ? CurrentSession.Instance.RemotePlayerName : CurrentSession.Instance.LocalPlayerName;
+
             // assign sprites to tanks
-            var player = new HeavyTank("Player 1", 0);
-            player.BodySprite = _Tank1Body;
-            player.BarrelSprite = _Tank1Cannon;
+            var hostTank = new HeavyTank(hostName, 0);
+            hostTank.BodySprite = _Tank1Body;
+            hostTank.BarrelSprite = _Tank1Cannon;
 
-            var enemy = new LightTank("Player 2", 1);
-            enemy.BodySprite = _Tank2Body;
-            enemy.BarrelSprite = _Tank2Cannon;
+            var guestTank = new LightTank(guestName, 1);
+            guestTank.BodySprite = _Tank2Body;
+            guestTank.BarrelSprite = _Tank2Cannon;
 
-            var ai = new AiTank(difficulty: 2);
-            ai.BodySprite = _aiBody;
-            ai.BarrelSprite = _aiCannon;
-
-            var tanks = new List<Tank> { player, enemy };
-            // add ai if you want 3 players: tanks.Add(ai);
+            var tanks = new List<Tank> { hostTank, guestTank };
 
             // subscribe to engine events
             _engine.OnTick += () => this.Invalidate();
@@ -101,7 +97,22 @@ namespace OOP_GAME.UI
             _engine.OnTankDied += (tank) => ShowMessage($"{tank.PlayerName} destroyed!");
             _engine.OnGameOver += (tank) => ShowGameOver(tank);
 
-            _engine.StartGame(tanks);
+            // Subscribe to network messages to feed them into the engine on the UI thread
+            NetworkManager.Instance.OnMessageReceived += Network_MessageReceived;
+
+            _engine.StartGame(tanks, CurrentSession.Instance.TerrainSeed, CurrentSession.Instance.InitialWind);
+        }
+
+        private void Network_MessageReceived(string msg)
+        {
+            if (this.InvokeRequired)
+            {
+                this.Invoke(new Action(() => _engine.HandleNetworkMessage(msg)));
+            }
+            else
+            {
+                _engine.HandleNetworkMessage(msg);
+            }
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -165,14 +176,16 @@ namespace OOP_GAME.UI
 
         private void DrawBackground(Graphics g)
         {
-            using (var brush = new LinearGradientBrush(
-                new Point(0, 0),
-                new Point(0, this.ClientSize.Height),
-                Color.FromArgb(30, 60, 120),   // dark blue top
-                Color.FromArgb(10, 20, 50)))    // darker bottom
-            {
-                g.FillRectangle(brush, 0, 0, this.ClientSize.Width, this.ClientSize.Height);
-            }
+            Image backgroudn= Image.FromFile("assets/sky.png");
+            g.DrawImage(backgroudn, 0, 0, this.ClientSize.Width, this.ClientSize.Height);
+            //using (var brush = new LinearGradientBrush(
+            //    new Point(0, 0),
+            //    new Point(0, this.ClientSize.Height),
+            //    Color.FromArgb(30, 60, 120),   // dark blue top
+            //    Color.FromArgb(10, 20, 50)))    // darker bottom
+            //{
+            //    g.FillRectangle(brush, 0, 0, this.ClientSize.Width, this.ClientSize.Height);
+            //}
         }
 
         // ─────────────────────────────────────────────────────────────

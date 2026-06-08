@@ -75,8 +75,8 @@ namespace OOP_GAME.UI
             if (_currentPlayer == 1)
             {
                 // save player 1 selection
-                CurrentSession.Instance.Player1BodyImage = _bodyImages[_bodyIndex];
-                CurrentSession.Instance.Player1CannonImage = _cannonImages[_cannonIndex];
+                //CurrentSession.Instance.Player1BodyImage = _bodyImages[_bodyIndex];
+                //CurrentSession.Instance.Player1CannonImage = _cannonImages[_cannonIndex];
 
                 // reset for player 2
                 _bodyIndex = 0;
@@ -87,8 +87,8 @@ namespace OOP_GAME.UI
             else
             {
                 // save player 2 selection
-                CurrentSession.Instance.Player2BodyImage = _bodyImages[_bodyIndex];
-                CurrentSession.Instance.Player2CannonImage = _cannonImages[_cannonIndex];
+                //CurrentSession.Instance.Player2BodyImage = _bodyImages[_bodyIndex];
+                //CurrentSession.Instance.Player2CannonImage = _cannonImages[_cannonIndex];
 
                 // go to game
                 var game = new GameForm();

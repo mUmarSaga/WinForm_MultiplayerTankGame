@@ -154,6 +154,9 @@
     <Content Include="assets\heavyTank3Cannon.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="assets\sky.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <None Include="Resources\SelectButton-removebg-preview.png" />
     <None Include="Resources\arrowButton_inverted.png" />
     <None Include="Resources\arrowButton-removebg-preview1.png" />
