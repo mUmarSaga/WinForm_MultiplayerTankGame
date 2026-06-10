@@ -1,6 +1,7 @@
 using OOP_GAME.Model;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -41,8 +42,13 @@ namespace OOP_GAME.BL
         public event Action<ImpactResult> OnProjectileHit;
         public event Action<Tank> OnTankDied;
         public event Action<Tank> OnGameOver;
+        public event Action<SupplyCrate, Tank> OnCrateCollected;
 
         private List<Projectile> _activeSubProjectiles = new List<Projectile>();
+
+        // ─── supply crates ───────────────────────────────────────────
+        public List<SupplyCrate> ActiveCrates { get; private set; } = new List<SupplyCrate>();
+        private Random _crateRng = new Random();
 
         public GameEngine(int panelWidth, int panelHeight)
         {
@@ -142,14 +148,15 @@ namespace OOP_GAME.BL
                 }
             }
 
+            // update supply crates
+            UpdateCrates();
+
             // update all tanks
             foreach (var tank in Tanks)
             {
                 if (tank.IsAlive)
                     _physics.UpdateTank(tank, Ground);
             }
-
-
 
             OnTick?.Invoke();
         }
@@ -312,6 +319,15 @@ namespace OOP_GAME.BL
                 }
             }
 
+            // chance to spawn a supply crate (host decides)
+            if (CurrentSession.Instance.IsHost && _crateRng.NextDouble() < 0.25)
+            {
+                int crateX = _crateRng.Next(80, PanelWidth - 80);
+                CrateType crateType = _crateRng.NextDouble() < 0.5 ? CrateType.Health : CrateType.Ammo;
+                SpawnCrate(crateX, crateType);
+                NetworkManager.Instance.SendMessage($"CRATE:{crateX},{(int)crateType}");
+            }
+
             ActiveProjectile = null;
             OnTurnChanged?.Invoke(CurrentTank);
         }
@@ -389,6 +405,16 @@ namespace OOP_GAME.BL
                         _physics.WindStrength = wind;
                     }
                 }
+                else if (type == "CRATE")
+                {
+                    string[] cParts = payload.Split(',');
+                    if (cParts.Length == 2 &&
+                        int.TryParse(cParts[0], out int crateX) &&
+                        int.TryParse(cParts[1], out int crateTypeInt))
+                    {
+                        SpawnCrate(crateX, (CrateType)crateTypeInt);
+                    }
+                }
             }
             catch
             {
@@ -438,6 +464,100 @@ namespace OOP_GAME.BL
                 _gameTimer.Stop();
                 OnGameOver?.Invoke(Winner);
             }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  SUPPLY CRATES
+        // ─────────────────────────────────────────────────────────────
+
+        private void SpawnCrate(int x, CrateType type)
+        {
+            var crate = new SupplyCrate(x, -40, type);
+            ActiveCrates.Add(crate);
+        }
+
+        private void UpdateCrates()
+        {
+            for (int i = ActiveCrates.Count - 1; i >= 0; i--)
+            {
+                var crate = ActiveCrates[i];
+                if (!crate.IsActive) { ActiveCrates.RemoveAt(i); continue; }
+
+                crate.Update(Ground);
+
+                // check collection by any alive tank
+                if (crate.HasLanded)
+                {
+                    foreach (var tank in Tanks)
+                    {
+                        if (!tank.IsAlive) continue;
+                        if (crate.Overlaps(tank))
+                        {
+                            ApplyCrateEffect(crate, tank);
+                            crate.IsActive = false;
+                            ActiveCrates.RemoveAt(i);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        private void ApplyCrateEffect(SupplyCrate crate, Tank tank)
+        {
+            if (crate.Type == CrateType.Health)
+            {
+                tank.Health = Math.Min(tank.Health + 30, tank.MaxHealth);
+            }
+            else // Ammo
+            {
+                foreach (var weapon in tank.WeaponInventory)
+                {
+                    if (weapon.Ammo > 0) // only add to limited-ammo weapons
+                        weapon.Ammo += 1;
+                }
+            }
+            OnCrateCollected?.Invoke(crate, tank);
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  TRAJECTORY PREVIEW
+        // ─────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Returns a list of predicted trajectory points for the aiming dots.
+        /// Uses the same physics as projectile flight.
+        /// </summary>
+        public List<PointF> GetTrajectoryPreview(int numDots = 15)
+        {
+            var points = new List<PointF>();
+            if (CurrentTank == null) return points;
+
+            float tipX, tipY;
+            GetBarrelTip(CurrentTank, out tipX, out tipY);
+
+            double rad = CurrentTank.BarrelAngle * Math.PI / 180.0;
+            float speed = CurrentTank.FirePower * 0.15f;
+            float vx = (float)(Math.Cos(rad) * speed);
+            float vy = (float)(-Math.Sin(rad) * speed);
+
+            float px = tipX, py = tipY;
+            for (int i = 0; i < numDots; i++)
+            {
+                // step physics (same constants as PhysicsEngine)
+                vy += 0.4f;           // Gravity
+                vx += _physics.WindStrength; // Wind
+                px += vx;
+                py += vy;
+
+                // stop if below ground
+                int ix = (int)Math.Max(0, Math.Min(px, PanelWidth - 1));
+                if (ix >= 0 && ix < Ground.Length && py >= Ground[ix])
+                    break;
+
+                points.Add(new PointF(px, py));
+            }
+            return points;
         }
 
         // ─────────────────────────────────────────────────────────────

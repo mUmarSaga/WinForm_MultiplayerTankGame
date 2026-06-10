@@ -24,6 +24,14 @@ namespace OOP_GAME.UI
         private bool _gameOver = false;
         private string _winnerName = "";
 
+        // ─── turn change animation ──────────────────────────────────
+        private int _turnFlashFrames = 0;
+        private const int TurnFlashDuration = 40; // frames
+
+        // ─── crate pickup notification ─────────────────────────────
+        private string _crateNotification = "";
+        private int _crateNotifyFrames = 0;
+
         // ─── HUD fonts/brushes ───────────────────────────────────────
         private Font _hudFont = new Font("Arial", 12, FontStyle.Bold);
         private Font _nameFont = new Font("Arial", 10, FontStyle.Bold);
@@ -106,9 +114,19 @@ namespace OOP_GAME.UI
 
             // subscribe to engine events
             _engine.OnTick += () => this.Invalidate();
-            _engine.OnTurnChanged += (tank) => UpdateHUD(tank);
+            _engine.OnTurnChanged += (tank) =>
+            {
+                _turnFlashFrames = TurnFlashDuration;
+                UpdateHUD(tank);
+            };
             _engine.OnTankDied += (tank) => ShowMessage($"{tank.PlayerName} destroyed!");
             _engine.OnGameOver += (tank) => ShowGameOver(tank);
+            _engine.OnCrateCollected += (crate, tank) =>
+            {
+                string type = crate.Type == OOP_GAME.Model.CrateType.Health ? "+30 HP" : "+1 Ammo";
+                _crateNotification = $"{tank.PlayerName} picked up {type}!";
+                _crateNotifyFrames = 90; // ~1.5 seconds
+            };
 
             // Subscribe to network messages to feed them into the engine on the UI thread
             NetworkManager.Instance.OnMessageReceived += Network_MessageReceived;
@@ -155,17 +173,27 @@ namespace OOP_GAME.UI
             // 2. terrain
             DrawTerrain(g);
 
-            // 3. tanks
+            // 3. supply crates (behind tanks)
+            DrawSupplyCrates(g);
+
+            // 4. tanks
             foreach (var tank in _engine.Tanks)
                 if (tank.IsAlive)
                     DrawTank(g, tank);
 
-            // 4. projectile
+            // 5. trajectory preview dots (only when aiming)
+            if (!_engine.IsProjectileFlying && _engine.IsLocalPlayersTurn() && !_engine.IsGameOver)
+                DrawTrajectoryPreview(g);
+
+            // 6. projectile
             if (_engine.ActiveProjectile != null && _engine.ActiveProjectile.IsActive)
                 DrawProjectile(g, _engine.ActiveProjectile);
 
-            // 5. HUD
+            // 7. HUD
             DrawHUD(g);
+
+            // 8. crate pickup notification
+            DrawCrateNotification(g);
 
             if (_gameOver)
             {
@@ -358,28 +386,35 @@ namespace OOP_GAME.UI
 
             Tank current = _engine.CurrentTank;
 
-            // top left — current turn info
-            string turnText = $"Turn: {current.PlayerName}";
-            g.DrawString(turnText, _hudFont, Brushes.White, 10, 10);
+            // ── TURN INDICATOR BANNER (top center) ─────────────────────
+            DrawTurnBanner(g, current);
+
+            // ── left panel: angle, power, fuel ─────────────────────────
+            // semi-transparent background
+            using (var bgBrush = new SolidBrush(Color.FromArgb(120, 0, 0, 0)))
+            {
+                var bgRect = new RectangleF(5, 50, 200, 80);
+                g.FillRectangle(bgBrush, bgRect);
+            }
 
             string angleText = $"Angle: {current.BarrelAngle:F0}°";
-            g.DrawString(angleText, _hudFont, Brushes.Yellow, 10, 30);
+            g.DrawString(angleText, _hudFont, Brushes.Yellow, 12, 55);
 
             string powerText = $"Power: {current.FirePower:F0}";
-            g.DrawString(powerText, _hudFont, Brushes.OrangeRed, 10, 50);
+            g.DrawString(powerText, _hudFont, Brushes.OrangeRed, 12, 75);
 
             string fuelText = $"Fuel: {current.Fuel}";
-            g.DrawString(fuelText, _hudFont, Brushes.LightBlue, 10, 70);
+            g.DrawString(fuelText, _hudFont, Brushes.LightBlue, 12, 95);
 
-            string weaponText = $"Weapon: {current.CurrentWeapon?.Name ?? "None"}";
-            g.DrawString(weaponText, _hudFont, Brushes.LightGreen, 10, 90);
+            // ── right panel: weapon inventory ──────────────────────────
+            DrawWeaponPanel(g, current);
 
-            // wind indicator top center
+            // wind indicator below turn banner
             string windText = $"Wind: {(_engine.WindStrength >= 0 ? "→" : "←")} " +
                               $"{Math.Abs(_engine.WindStrength * 100):F0}%";
             SizeF ws = g.MeasureString(windText, _hudFont);
             g.DrawString(windText, _hudFont, Brushes.LightCyan,
-                this.ClientSize.Width / 2f - ws.Width / 2f, 10);
+                this.ClientSize.Width / 2f - ws.Width / 2f, 45);
 
             // bottom controls hint
             string controls = "A/D: Move   W/S: Aim   Q/E: Power   Space: Fire   1/2: Weapon";
@@ -387,6 +422,209 @@ namespace OOP_GAME.UI
             g.DrawString(controls, _hudFont, Brushes.Gray,
                 this.ClientSize.Width / 2f - cs.Width / 2f,
                 this.ClientSize.Height - 30);
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  TURN BANNER
+        // ─────────────────────────────────────────────────────────────
+
+        private void DrawTurnBanner(Graphics g, Tank current)
+        {
+            string turnText = $"► {current.PlayerName}'s Turn";
+            using (var bannerFont = new Font("Arial", 16, FontStyle.Bold))
+            {
+                SizeF textSize = g.MeasureString(turnText, bannerFont);
+                float bannerW = textSize.Width + 40;
+                float bannerH = 34;
+                float bannerX = ClientSize.Width / 2f - bannerW / 2f;
+                float bannerY = 5;
+
+                // team color
+                Color teamColor = current.TeamId == 0
+                    ? Color.FromArgb(60, 180, 75)   // green
+                    : Color.FromArgb(70, 130, 230);  // blue
+
+                // flash effect on turn change
+                int bgAlpha = 160;
+                if (_turnFlashFrames > 0)
+                {
+                    float t = (float)_turnFlashFrames / TurnFlashDuration;
+                    bgAlpha = (int)(160 + 80 * t); // brighter when fresh
+                    _turnFlashFrames--;
+                }
+                bgAlpha = Math.Min(bgAlpha, 240);
+
+                Color bgColor = Color.FromArgb(bgAlpha, teamColor.R, teamColor.G, teamColor.B);
+
+                // draw banner rectangle
+                RectangleF bannerRect = new RectangleF(bannerX, bannerY, bannerW, bannerH);
+                using (var bgBrush = new SolidBrush(bgColor))
+                    g.FillRectangle(bgBrush, bannerRect);
+
+                using (var borderPen = new Pen(Color.FromArgb(200, 255, 255, 255), 1.5f))
+                    g.DrawRectangle(borderPen, bannerX, bannerY, bannerW, bannerH);
+
+                // text
+                g.DrawString(turnText, bannerFont, Brushes.White,
+                    bannerX + 20, bannerY + (bannerH - textSize.Height) / 2f);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  WEAPON PANEL
+        // ─────────────────────────────────────────────────────────────
+
+        private void DrawWeaponPanel(Graphics g, Tank current)
+        {
+            int panelW = 200;
+            int lineH = 22;
+            int panelH = 10 + current.WeaponInventory.Count * lineH + 5;
+            int panelX = ClientSize.Width - panelW - 10;
+            int panelY = 50;
+
+            // background
+            using (var bgBrush = new SolidBrush(Color.FromArgb(120, 0, 0, 0)))
+                g.FillRectangle(bgBrush, panelX, panelY, panelW, panelH);
+
+            // title
+            using (var titleFont = new Font("Arial", 10, FontStyle.Bold))
+                g.DrawString("WEAPONS", titleFont, Brushes.White, panelX + 8, panelY + 4);
+
+            // list weapons
+            using (var weaponFont = new Font("Arial", 10))
+            {
+                for (int i = 0; i < current.WeaponInventory.Count; i++)
+                {
+                    var w = current.WeaponInventory[i];
+                    bool isSelected = (w == current.CurrentWeapon);
+                    int yPos = panelY + 22 + i * lineH;
+
+                    // highlight selected
+                    if (isSelected)
+                    {
+                        using (var hlBrush = new SolidBrush(Color.FromArgb(80, 255, 255, 100)))
+                            g.FillRectangle(hlBrush, panelX + 4, yPos - 1, panelW - 8, lineH);
+                    }
+
+                    string ammoStr = w.Ammo == -1 ? "∞" : w.Ammo.ToString();
+                    string keyHint = $"[{i + 1}]";
+                    string line = $"{keyHint} {w.Name}  x{ammoStr}";
+
+                    Brush textBrush = isSelected ? Brushes.Yellow : Brushes.LightGray;
+                    // dim if no ammo
+                    if (w.Ammo == 0)
+                        textBrush = Brushes.DarkGray;
+
+                    g.DrawString(line, weaponFont, textBrush, panelX + 8, yPos);
+                }
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  TRAJECTORY PREVIEW
+        // ─────────────────────────────────────────────────────────────
+
+        private void DrawTrajectoryPreview(Graphics g)
+        {
+            var points = _engine.GetTrajectoryPreview(15);
+            for (int i = 0; i < points.Count; i++)
+            {
+                float size = 3f;
+                // fade out toward end
+                int alpha = (int)(150 * (1f - (float)i / points.Count));
+                using (var fadeBrush = new SolidBrush(Color.FromArgb(alpha, 255, 255, 255)))
+                    g.FillEllipse(fadeBrush, points[i].X - size / 2, points[i].Y - size / 2, size, size);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  SUPPLY CRATES
+        // ─────────────────────────────────────────────────────────────
+
+        private void DrawSupplyCrates(Graphics g)
+        {
+            foreach (var crate in _engine.ActiveCrates)
+            {
+                if (!crate.IsActive) continue;
+
+                float cx = crate.X;
+                float cy = crate.Y;
+                int cw = crate.Width;
+                int ch = crate.Height;
+
+                // ── parachute (while still falling) ───────────────────
+                if (!crate.HasLanded)
+                {
+                    float parachuteW = cw * 2.2f;
+                    float parachuteH = cw * 1.2f;
+                    float pcx = cx + cw / 2f + crate.SwayAngle * 0.3f; // sway offset
+                    float pcy = cy - parachuteH + 2;
+
+                    // dome
+                    Color domeColor = crate.Type == CrateType.Health
+                        ? Color.FromArgb(180, 220, 80, 80) : Color.FromArgb(180, 220, 200, 50);
+                    using (var domeBrush = new SolidBrush(domeColor))
+                        g.FillEllipse(domeBrush, pcx - parachuteW / 2, pcy, parachuteW, parachuteH);
+
+                    // strings
+                    using (var stringPen = new Pen(Color.FromArgb(180, 200, 200, 200), 1))
+                    {
+                        float crateCenter = cx + cw / 2f;
+                        g.DrawLine(stringPen, pcx - parachuteW / 3f, pcy + parachuteH * 0.7f, crateCenter, cy);
+                        g.DrawLine(stringPen, pcx, pcy + parachuteH * 0.5f, crateCenter, cy);
+                        g.DrawLine(stringPen, pcx + parachuteW / 3f, pcy + parachuteH * 0.7f, crateCenter, cy);
+                    }
+                }
+
+                // ── crate box ─────────────────────────────────────────
+                if (crate.Type == CrateType.Health)
+                {
+                    // green box with white cross
+                    using (var boxBrush = new SolidBrush(Color.FromArgb(220, 40, 160, 60)))
+                        g.FillRectangle(boxBrush, cx, cy, cw, ch);
+                    using (var crossPen = new Pen(Color.White, 2))
+                    {
+                        g.DrawLine(crossPen, cx + cw / 2, cy + 4, cx + cw / 2, cy + ch - 4);
+                        g.DrawLine(crossPen, cx + 4, cy + ch / 2, cx + cw - 4, cy + ch / 2);
+                    }
+                }
+                else
+                {
+                    // orange/gold box with "A" for ammo
+                    using (var boxBrush = new SolidBrush(Color.FromArgb(220, 200, 160, 30)))
+                        g.FillRectangle(boxBrush, cx, cy, cw, ch);
+                    using (var ammoFont = new Font("Arial", 10, FontStyle.Bold))
+                        g.DrawString("A", ammoFont, Brushes.White, cx + 5, cy + 3);
+                }
+
+                // border
+                using (var borderPen = new Pen(Color.FromArgb(180, 60, 40, 20), 1.5f))
+                    g.DrawRectangle(borderPen, cx, cy, cw, ch);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  CRATE NOTIFICATION
+        // ─────────────────────────────────────────────────────────────
+
+        private void DrawCrateNotification(Graphics g)
+        {
+            if (_crateNotifyFrames <= 0) return;
+
+            float alpha = Math.Min(255, _crateNotifyFrames * 6);
+            using (var font = new Font("Arial", 14, FontStyle.Bold))
+            {
+                SizeF size = g.MeasureString(_crateNotification, font);
+                float x = ClientSize.Width / 2f - size.Width / 2f;
+                float y = ClientSize.Height / 2f - 100;
+
+                using (var bgBrush = new SolidBrush(Color.FromArgb((int)(alpha * 0.5), 0, 0, 0)))
+                    g.FillRectangle(bgBrush, x - 10, y - 4, size.Width + 20, size.Height + 8);
+
+                using (var textBrush = new SolidBrush(Color.FromArgb((int)alpha, 255, 230, 100)))
+                    g.DrawString(_crateNotification, font, textBrush, x, y);
+            }
+            _crateNotifyFrames--;
         }
 
         private void UpdateHUD(Tank tank)

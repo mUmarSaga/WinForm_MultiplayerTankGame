@@ -78,6 +78,7 @@
     <Compile Include="Model\RocketLauncher.cs" />
     <Compile Include="Model\Tank.cs" />
     <Compile Include="Model\Weapon.cs" />
+    <Compile Include="Model\SupplyCrate.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UI\GameForm.cs">
