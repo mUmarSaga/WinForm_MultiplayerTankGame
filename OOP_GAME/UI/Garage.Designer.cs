@@ -1,4 +1,4 @@
-﻿namespace OOP_GAME.UI
+namespace OOP_GAME.UI
 {
     partial class Garage
     {
@@ -108,6 +108,7 @@
             this.SelectButton.Size = new System.Drawing.Size(637, 61);
             this.SelectButton.TabIndex = 4;
             this.SelectButton.TabStop = false;
+            this.SelectButton.Click += new System.EventHandler(this.SelectButton_Click);
             // 
             // Body
             // 

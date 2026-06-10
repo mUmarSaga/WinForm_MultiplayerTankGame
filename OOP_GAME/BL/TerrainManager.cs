@@ -19,21 +19,27 @@ namespace OOP_GAME.BL
             _panelHeight = panelHeight;
         }
 
-        // ── already wrote this ──────────────────────────────────────
+        // ── parameterless version — random seed ─────────────────────
         public void GenerateTerrain()
         {
+            GenerateTerrain(new Random().Next());
+        }
+
+        // ── seeded version — deterministic for multiplayer ──────────
+        public void GenerateTerrain(int seed)
+        {
             Ground = new int[_panelWidth];
-            var rng = new Random();
+            var rng = new Random(seed);
             int baseline = (int)(_panelHeight * 0.75); // lower baseline (more ground visible)
             int amplitude = 25;                          // was 40, less height on hills
-            double seed = 0.02 + rng.NextDouble() * 0.02; // was 0.5+, much less frequent waves
+            double freq = 0.02 + rng.NextDouble() * 0.02; // was 0.5+, much less frequent waves
 
             for (int x = 0; x < _panelWidth; x++)
             {
                 Ground[x] = baseline
-           + (int)(amplitude * Math.Sin(x * seed))
-           + (int)(amplitude * 0.5 * Math.Sin(x * seed * 2.3 + 1.5))
-           + (int)(amplitude * 0.3 * Math.Sin(x * seed * 0.7 + 3.0));
+           + (int)(amplitude * Math.Sin(x * freq))
+           + (int)(amplitude * 0.5 * Math.Sin(x * freq * 2.3 + 1.5))
+           + (int)(amplitude * 0.3 * Math.Sin(x * freq * 0.7 + 3.0));
             }
         }
 

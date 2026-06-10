@@ -77,17 +77,30 @@ namespace OOP_GAME.UI
         {
             _engine = new GameEngine(this.ClientSize.Width, this.ClientSize.Height);
 
-            string hostName = CurrentSession.Instance.IsHost ? CurrentSession.Instance.LocalPlayerName : CurrentSession.Instance.RemotePlayerName;
-            string guestName = CurrentSession.Instance.IsHost ? CurrentSession.Instance.RemotePlayerName : CurrentSession.Instance.LocalPlayerName;
+            var session = CurrentSession.Instance;
+            string hostName = session.IsHost ? session.LocalPlayerName : session.RemotePlayerName;
+            string guestName = session.IsHost ? session.RemotePlayerName : session.LocalPlayerName;
+
+            // resolve appearance indices — host's appearance for tank 0, guest's for tank 1
+            int hostBodyIdx = session.IsHost ? session.LocalBodyIndex : session.RemoteBodyIndex;
+            int hostCannonIdx = session.IsHost ? session.LocalCannonIndex : session.RemoteCannonIndex;
+            int guestBodyIdx = session.IsHost ? session.RemoteBodyIndex : session.LocalBodyIndex;
+            int guestCannonIdx = session.IsHost ? session.RemoteCannonIndex : session.LocalCannonIndex;
+
+            // load sprites from paths
+            Image hostBodySprite = LoadSprite(CurrentSession.BodyImages[hostBodyIdx]);
+            Image hostCannonSprite = LoadSprite(CurrentSession.CannonImages[hostCannonIdx]);
+            Image guestBodySprite = LoadSprite(CurrentSession.BodyImages[guestBodyIdx]);
+            Image guestCannonSprite = LoadSprite(CurrentSession.CannonImages[guestCannonIdx]);
 
             // assign sprites to tanks
             var hostTank = new HeavyTank(hostName, 0);
-            hostTank.BodySprite = _Tank1Body;
-            hostTank.BarrelSprite = _Tank1Cannon;
+            hostTank.BodySprite = hostBodySprite;
+            hostTank.BarrelSprite = hostCannonSprite;
 
             var guestTank = new LightTank(guestName, 1);
-            guestTank.BodySprite = _Tank2Body;
-            guestTank.BarrelSprite = _Tank2Cannon;
+            guestTank.BodySprite = guestBodySprite;
+            guestTank.BarrelSprite = guestCannonSprite;
 
             var tanks = new List<Tank> { hostTank, guestTank };
 
@@ -100,7 +113,19 @@ namespace OOP_GAME.UI
             // Subscribe to network messages to feed them into the engine on the UI thread
             NetworkManager.Instance.OnMessageReceived += Network_MessageReceived;
 
-            _engine.StartGame(tanks, CurrentSession.Instance.TerrainSeed, CurrentSession.Instance.InitialWind);
+            _engine.StartGame(tanks, session.TerrainSeed, session.InitialWind);
+        }
+
+        private Image LoadSprite(string path)
+        {
+            try
+            {
+                return Image.FromFile(path);
+            }
+            catch
+            {
+                return null; // fallback to rectangle drawing
+            }
         }
 
         private void Network_MessageReceived(string msg)

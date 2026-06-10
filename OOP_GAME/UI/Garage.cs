@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -27,7 +27,7 @@ namespace OOP_GAME.UI
 
         private int _bodyIndex = 0;
         private int _cannonIndex = 0;
-        private int _currentPlayer = 1; // 1 or 2
+
         public Garage()
         {
             InitializeComponent();
@@ -37,15 +37,26 @@ namespace OOP_GAME.UI
             this.KeyPreview = true;
             this.WindowState = FormWindowState.Maximized;
         }
+
+        private void Garage_Load(object sender, EventArgs e)
+        {
+            // load saved appearance from Properties.Settings
+            _bodyIndex = Properties.Settings.Default.BodySpriteIndex;
+            _cannonIndex = Properties.Settings.Default.CannonSpriteIndex;
+
+            // clamp to valid range in case settings are corrupted
+            _bodyIndex = Math.Max(0, Math.Min(_bodyIndex, _bodyImages.Length - 1));
+            _cannonIndex = Math.Max(0, Math.Min(_cannonIndex, _cannonImages.Length - 1));
+
+            UpdateDisplay();
+        }
+
         private void UpdateDisplay()
         {
             Body.Image = Image.FromFile(_bodyImages[_bodyIndex]);
             Cannon.Image = Image.FromFile(_cannonImages[_cannonIndex]);
-
-            // show which player is selecting
-            this.Text = $"Player {_currentPlayer} - Select Your Tank";
+            this.Text = "Garage — Customize Your Tank";
         }
-   
 
         private void CannonPrevious_Click_1(object sender, EventArgs e)
         {
@@ -70,38 +81,22 @@ namespace OOP_GAME.UI
             _bodyIndex = (_bodyIndex + 1) % _bodyImages.Length;
             UpdateDisplay();
         }
+
         private void SelectButton_Click(object sender, EventArgs e)
         {
-            if (_currentPlayer == 1)
-            {
-                // save player 1 selection
-                //CurrentSession.Instance.Player1BodyImage = _bodyImages[_bodyIndex];
-                //CurrentSession.Instance.Player1CannonImage = _cannonImages[_cannonIndex];
+            // save to persistent settings
+            Properties.Settings.Default.BodySpriteIndex = _bodyIndex;
+            Properties.Settings.Default.CannonSpriteIndex = _cannonIndex;
+            Properties.Settings.Default.Save();
 
-                // reset for player 2
-                _bodyIndex = 0;
-                _cannonIndex = 0;
-                _currentPlayer = 2;
-                UpdateDisplay();
-            }
-            else
-            {
-                // save player 2 selection
-                //CurrentSession.Instance.Player2BodyImage = _bodyImages[_bodyIndex];
-                //CurrentSession.Instance.Player2CannonImage = _cannonImages[_cannonIndex];
+            // also update the current session so it's ready for gameplay
+            CurrentSession.Instance.LocalBodyIndex = _bodyIndex;
+            CurrentSession.Instance.LocalCannonIndex = _cannonIndex;
 
-                // go to game
-                var game = new GameForm();
-                game.Show(this.Owner);
-                this.Close();
-            }
+            // return to menu
+            if (this.Owner != null)
+                this.Owner.Show();
+            this.Close();
         }
-
-        private void Garage_Load(object sender, EventArgs e)
-        {
-            
-        }
-
-
     }
 }
