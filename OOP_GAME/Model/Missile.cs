@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace OOP_GAME.Model
 {
-    // Models/Missile.cs
+    
     public class Missile : Projectile
     {
         public Tank Target { get; set; }
@@ -20,7 +20,7 @@ namespace OOP_GAME.Model
 
         public override void Update()
         {
-            // slight course correction toward target, done in PhysicsEngine
+         
         }
 
         public override void OnImpact(int[] ground, List<Tank> tanks)

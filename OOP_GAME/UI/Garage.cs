@@ -40,11 +40,11 @@ namespace OOP_GAME.UI
 
         private void Garage_Load(object sender, EventArgs e)
         {
-            // load saved appearance from Properties.Settings
+            
             _bodyIndex = Properties.Settings.Default.BodySpriteIndex;
             _cannonIndex = Properties.Settings.Default.CannonSpriteIndex;
 
-            // clamp to valid range in case settings are corrupted
+            
             _bodyIndex = Math.Max(0, Math.Min(_bodyIndex, _bodyImages.Length - 1));
             _cannonIndex = Math.Max(0, Math.Min(_cannonIndex, _cannonImages.Length - 1));
 
@@ -84,16 +84,16 @@ namespace OOP_GAME.UI
 
         private void SelectButton_Click(object sender, EventArgs e)
         {
-            // save to persistent settings
+            
             Properties.Settings.Default.BodySpriteIndex = _bodyIndex;
             Properties.Settings.Default.CannonSpriteIndex = _cannonIndex;
             Properties.Settings.Default.Save();
 
-            // also update the current session so it's ready for gameplay
+            
             CurrentSession.Instance.LocalBodyIndex = _bodyIndex;
             CurrentSession.Instance.LocalCannonIndex = _cannonIndex;
 
-            // return to menu
+            
             if (this.Owner != null)
                 this.Owner.Show();
             this.Close();

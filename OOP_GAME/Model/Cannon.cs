@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace OOP_GAME.Model
 {
-    // Models/Cannon.cs
+    
     public class Cannon : Weapon
     {
         public Cannon() : base("Cannon", ammo: -1, damage: 20, blastRadius: 100) { }

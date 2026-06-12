@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace OOP_GAME.Model
 {
-    // Model/ClusterBombWeapon.cs
+    
     public class ClusterBombWeapon : Weapon
     {
         public ClusterBombWeapon() : base("Cluster Bomb", ammo: 3, damage: 30, blastRadius: 20) { }

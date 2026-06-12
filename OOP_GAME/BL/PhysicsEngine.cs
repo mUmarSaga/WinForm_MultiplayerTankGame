@@ -19,19 +19,16 @@ public class PhysicsEngine
 
     public void UpdateTank(Tank tank, int[] ground)
     {
-        // clamp to panel edges
+        
         if (tank.X < 0) tank.X = 0;
         if (tank.X > ground.Length - tank.Width - 1)
             tank.X = ground.Length - tank.Width - 1;
 
-        // use CENTER of tank for ground lookup, not left edge
+
         int centerX = (int)(tank.X + tank.Width / 2f);
         centerX = Math.Max(1, Math.Min(centerX, ground.Length - 2));
 
-        // snap to ground
         tank.Y = ground[centerX] - tank.Height;
-
-        // angle based on center
         float dy = ground[centerX + 1] - ground[centerX - 1];
         tank.TerrainAngle = (float)(Math.Atan2(dy, 2f) * 180.0 / Math.PI);
     }
@@ -62,7 +59,6 @@ public class PhysicsEngine
     {
         foreach (var tank in tanks)
         {
-            // use CENTER of tank not top-left corner
             float tankCenterX = tank.X + tank.Width / 2f;
             float tankCenterY = tank.Y + tank.Height / 2f;
 

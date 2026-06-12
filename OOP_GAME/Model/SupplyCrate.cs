@@ -18,10 +18,10 @@ namespace OOP_GAME.Model
         public bool IsActive { get; set; } = true;
         public bool HasLanded { get; set; } = false;
 
-        // falling speed
+        
         private const float FallSpeed = 1.2f;
 
-        // parachute sway
+        
         private float _swayAngle = 0f;
         private float _swaySpeed;
         public float SwayAngle => _swayAngle;
@@ -34,14 +34,12 @@ namespace OOP_GAME.Model
             _swaySpeed = 0.03f + (float)(new Random().NextDouble() * 0.02);
         }
 
-        /// <summary>
-        /// Move the crate down. Returns true if it just landed this frame.
-        /// </summary>
+       =
         public bool Update(int[] ground)
         {
             if (!IsActive || HasLanded) return false;
 
-            // sway while falling
+        
             _swayAngle = (float)(Math.Sin(Y * _swaySpeed) * 8.0);
 
             Y += FallSpeed;
@@ -56,9 +54,7 @@ namespace OOP_GAME.Model
             return false;
         }
 
-        /// <summary>
-        /// Check if a tank overlaps this crate for collection.
-        /// </summary>
+       
         public bool Overlaps(Tank tank)
         {
             if (!IsActive || !HasLanded) return false;

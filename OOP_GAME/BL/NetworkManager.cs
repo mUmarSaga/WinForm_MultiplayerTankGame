@@ -13,7 +13,7 @@ namespace OOP_GAME.BL
     /// </summary>
     public class NetworkManager
     {
-        // ─── singleton ───────────────────────────────────────────────
+
         private static NetworkManager _instance;
         public static NetworkManager Instance
         {
@@ -25,7 +25,7 @@ namespace OOP_GAME.BL
             }
         }
 
-        // ─── connection ──────────────────────────────────────────────
+        
         private TcpListener _listener;
         private TcpClient _client;
         private StreamReader _reader;
@@ -34,19 +34,25 @@ namespace OOP_GAME.BL
 
         public const int Port = 8888;
 
-        // ─── events ──────────────────────────────────────────────────
+        
         public event Action<string> OnMessageReceived;
-        public event Action<string> OnConnected;       // remote username
+        public event Action<string> OnConnected;       
         public event Action OnDisconnected;
         public event Action<string> OnError;
 
-        // ─── HOST: start listening ──────────────────────────────────
+        // ─── HOST: start listen────────────────
         public async Task StartHostAsync()
         {
             try
             {
                 _listener = new TcpListener(IPAddress.Any, Port);
+                _listener = new TcpListener(IPAddress.Any, Port);
+                _listener.Server.SetSocketOption(
+                    SocketOptionLevel.Socket,
+                    SocketOptionName.ReuseAddress,
+                    true);
                 _listener.Start();
+                
 
                 _client = await _listener.AcceptTcpClientAsync();
                 SetupStreams();

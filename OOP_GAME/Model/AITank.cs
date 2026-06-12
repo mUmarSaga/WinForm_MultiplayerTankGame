@@ -6,16 +6,16 @@ using System.Threading.Tasks;
 
 namespace OOP_GAME.Model
 {
-    // Models/AiTank.cs
+    
     public class AiTank : Tank
     {
-        public int Difficulty { get; set; }   // 1=easy, 2=medium, 3=hard
-        public float AimAccuracy { get; set; } // 0-1, how close to perfect aim
+        public int Difficulty { get; set; } 
+        public float AimAccuracy { get; set; }
 
         public AiTank(int difficulty) : base("CPU", teamId: 1)
         {
             Difficulty = difficulty;
-            AimAccuracy = difficulty * 0.3f; // 0.3 easy, 0.6 medium, 0.9 hard
+            AimAccuracy = difficulty * 0.3f; 
             MaxHealth = 150;
             Health = 150;
             MaxFuel = 80;

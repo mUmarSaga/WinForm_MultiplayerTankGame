@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace OOP_GAME.Model
 {
-    // Models/RocketLauncher.cs
+    
     public class RocketLauncher : Weapon
     {
         private Tank _target;

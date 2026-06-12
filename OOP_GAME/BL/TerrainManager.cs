@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace OOP_GAME.BL
 {
-    // BL/TerrainManager.cs
+    
     public class TerrainManager
     {
         public int[] Ground { get; private set; }
@@ -19,20 +19,20 @@ namespace OOP_GAME.BL
             _panelHeight = panelHeight;
         }
 
-        // ── parameterless version — random seed ─────────────────────
+
         public void GenerateTerrain()
         {
             GenerateTerrain(new Random().Next());
         }
 
-        // ── seeded version — deterministic for multiplayer ──────────
+        
         public void GenerateTerrain(int seed)
         {
             Ground = new int[_panelWidth];
             var rng = new Random(seed);
-            int baseline = (int)(_panelHeight * 0.75); // lower baseline (more ground visible)
-            int amplitude = 25;                          // was 40, less height on hills
-            double freq = 0.02 + rng.NextDouble() * 0.02; // was 0.5+, much less frequent waves
+            int baseline = (int)(_panelHeight * 0.75); 
+            int amplitude = 25;                         
+            double freq = 0.02 + rng.NextDouble() * 0.02;
 
             for (int x = 0; x < _panelWidth; x++)
             {
@@ -43,7 +43,7 @@ namespace OOP_GAME.BL
             }
         }
 
-        // ── new: flat spots so tanks don't spawn on steep slopes ───
+        
         public void FlattenSpawnPoints(List<int> spawnXPositions, int flatWidth = 60)
         {
             foreach (int cx in spawnXPositions)
@@ -57,7 +57,7 @@ namespace OOP_GAME.BL
             }
         }
 
-        // ── new: get slope angle at a point (used by PhysicsEngine) 
+        
         public float GetSlopeAngle(int x)
         {
             if (x <= 0 || x >= Ground.Length - 1) return 0f;
@@ -66,14 +66,14 @@ namespace OOP_GAME.BL
             return (float)(Math.Atan2(dy, dx) * 180.0 / Math.PI);
         }
 
-        // ── new: check if a point is below ground ──────────────────
+        
         public bool IsBelowGround(float x, float y)
         {
             int ix = (int)Math.Max(0, Math.Min(x, Ground.Length - 1));
             return y >= Ground[ix];
         }
 
-        // ── already in PhysicsEngine but belongs here ───────────────
+        
         public void CreateCrater(int centerX, int radius)
         {
             for (int x = centerX - radius; x <= centerX + radius; x++)
@@ -81,7 +81,7 @@ namespace OOP_GAME.BL
                 if (x < 0 || x >= Ground.Length) continue;
                 int dx = x - centerX;
                 int depth = (int)Math.Sqrt(radius * radius - dx * dx);
-                depth = (int)(depth * 1.5f); // multiply depth to make it deeper
+                depth = (int)(depth * 1.5f);
                 Ground[x] = Math.Min(Ground[x] + depth, _panelHeight - 10);
             }
         }

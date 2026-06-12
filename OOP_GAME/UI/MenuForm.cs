@@ -18,7 +18,7 @@ namespace OOP_GAME.UI
         {
             InitializeComponent();
 
-            // load saved appearance into session at startup
+            
             CurrentSession.Instance.LoadAppearanceFromSettings();
         }
 
@@ -45,32 +45,32 @@ namespace OOP_GAME.UI
                 return;
             }
 
-            // setup session
+            
             var session = CurrentSession.Instance;
             session.IsHost = true;
             session.LocalPlayerName = username;
             session.LoadAppearanceFromSettings();
 
-            // disable buttons while waiting
+            
             HostButton.Enabled = false;
             JoinButton.Enabled = false;
             StatusLabel.Text = "Waiting for opponent on port 8888...";
             StatusLabel.ForeColor = Color.Yellow;
 
-            // reset and start hosting
+            
             NetworkManager.Reset();
             await NetworkManager.Instance.StartHostAsync();
 
-            // check if connection succeeded
+            
             if (CurrentSession.Instance.RemotePlayerName != null)
             {
                 StatusLabel.Text = $"Connected! {session.RemotePlayerName} joined.";
                 StatusLabel.ForeColor = Color.LimeGreen;
 
-                // short delay so user sees the connected message
+                
                 await Task.Delay(500);
 
-                // launch game
+                
                 GameForm gameForm = new GameForm();
                 gameForm.Show(this);
                 this.Hide();
@@ -102,23 +102,23 @@ namespace OOP_GAME.UI
                 return;
             }
 
-            // setup session
+            
             var session = CurrentSession.Instance;
             session.IsHost = false;
             session.LocalPlayerName = username;
             session.LoadAppearanceFromSettings();
 
-            // disable buttons
+            
             HostButton.Enabled = false;
             JoinButton.Enabled = false;
             StatusLabel.Text = $"Connecting to {ip}...";
             StatusLabel.ForeColor = Color.Yellow;
 
-            // reset and connect
+            
             NetworkManager.Reset();
             await NetworkManager.Instance.ConnectToHostAsync(ip);
 
-            // check if we got the START message
+            
             if (session.TerrainSeed != 0)
             {
                 StatusLabel.Text = "Connected! Starting game...";
@@ -126,7 +126,7 @@ namespace OOP_GAME.UI
 
                 await Task.Delay(500);
 
-                // launch game
+            
                 GameForm gameForm = new GameForm();
                 gameForm.Show(this);
                 this.Hide();

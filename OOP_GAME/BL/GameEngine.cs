@@ -10,33 +10,31 @@ namespace OOP_GAME.BL
 {
     public class GameEngine
     {
-        // ─── dependencies ───────────────────────────────────────────
+        
         private PhysicsEngine _physics;
         private TerrainManager _terrain;
 
-        // ─── game objects ────────────────────────────────────────────
+        
         public int[] Ground => _terrain.Ground;
         public List<Tank> Tanks { get; private set; }
         public Projectile ActiveProjectile { get; private set; }
 
-        // ─── turn system ─────────────────────────────────────────────
+        
         public int CurrentTurnIndex { get; private set; }
         public Tank CurrentTank => Tanks[CurrentTurnIndex];
         public bool IsPlayerTurn => !CurrentTank.IsAI;
         public int RoundNumber { get; private set; } = 1;
         public float WindStrength => _physics.WindStrength;
 
-        // ─── state flags ─────────────────────────────────────────────
+
         public bool IsProjectileFlying { get; private set; }
         public bool IsGameOver { get; private set; }
         public Tank Winner { get; private set; }
 
-        // ─── timer ───────────────────────────────────────────────────
         private Timer _gameTimer;
         public int PanelWidth { get; private set; }
         public int PanelHeight { get; private set; }
 
-        // ─── events ──────────────────────────────────────────────────
         public event Action OnTick;
         public event Action<Tank> OnTurnChanged;
         public event Action<ImpactResult> OnProjectileHit;
@@ -46,7 +44,7 @@ namespace OOP_GAME.BL
 
         private List<Projectile> _activeSubProjectiles = new List<Projectile>();
 
-        // ─── supply crates ───────────────────────────────────────────
+
         public List<SupplyCrate> ActiveCrates { get; private set; } = new List<SupplyCrate>();
         private Random _crateRng = new Random();
 
@@ -59,18 +57,15 @@ namespace OOP_GAME.BL
             Tanks = new List<Tank>();
         }
 
-        // ─────────────────────────────────────────────────────────────
-        //  SETUP
-        // ─────────────────────────────────────────────────────────────
 
         public void StartGame(List<Tank> tanks, int seed, float wind)
         {
             Tanks = tanks;
 
-            // generate terrain — Ground is now accessed via _terrain.Ground
+            
             _terrain.GenerateTerrain(seed);
 
-            // flatten spawn points so tanks don't start on steep slopes
+            
             int spacing = PanelWidth / (Tanks.Count + 1);
             var spawnPoints = new List<int>();
             for (int i = 0; i < Tanks.Count; i++)
@@ -78,10 +73,10 @@ namespace OOP_GAME.BL
 
             _terrain.FlattenSpawnPoints(spawnPoints);
 
-            // place tanks on terrain
+            
             PlaceTanksOnTerrain(spawnPoints);
 
-            // give each tank weapons
+            
             foreach (var tank in Tanks)
             {
                 tank.WeaponInventory.Add(new Cannon());
@@ -116,22 +111,18 @@ namespace OOP_GAME.BL
             return (float)(rng.NextDouble() * 0.16 - 0.08);
         }
 
-        // ─────────────────────────────────────────────────────────────
-        //  GAME LOOP
-        // ─────────────────────────────────────────────────────────────
-
         private void GameLoop(object sender, EventArgs e)
         {
             if (IsGameOver) return;
 
-            // update active projectile
+            
             if (IsProjectileFlying && ActiveProjectile != null)
             {
                 _physics.UpdateProjectile(ActiveProjectile);
                 CheckProjectileImpact();
             }
 
-            // update sub projectiles (cluster children)
+            
             for (int i = _activeSubProjectiles.Count - 1; i >= 0; i--)
             {
                 var sub = _activeSubProjectiles[i];
@@ -148,10 +139,10 @@ namespace OOP_GAME.BL
                 }
             }
 
-            // update supply crates
+            
             UpdateCrates();
 
-            // update all tanks
+            
             foreach (var tank in Tanks)
             {
                 if (tank.IsAlive)
@@ -161,9 +152,6 @@ namespace OOP_GAME.BL
             OnTick?.Invoke();
         }
 
-        // ─────────────────────────────────────────────────────────────
-        //  PROJECTILE
-        // ─────────────────────────────────────────────────────────────
 
         private void CheckProjectileImpact()
         {
@@ -174,7 +162,7 @@ namespace OOP_GAME.BL
 
             if (result.HitGround || result.HitTank != null)
             {
-                // crater now via TerrainManager, not PhysicsEngine
+                
                 _terrain.CreateCrater(result.X, (int)ActiveProjectile.BlastRadius);
 
                 _physics.ApplySplashDamage(
@@ -184,7 +172,7 @@ namespace OOP_GAME.BL
                     (int)ActiveProjectile.Damage
                 );
 
-                // cluster bomb splits into children
+                
                 if (ActiveProjectile is ClusterBomb cb && !cb.HasSplit)
                     SpawnClusters(cb);
             }
@@ -208,9 +196,6 @@ namespace OOP_GAME.BL
             }
         }
 
-        // ─────────────────────────────────────────────────────────────
-        //  TURN SYSTEM
-        // ─────────────────────────────────────────────────────────────
 
         public void PlayerFire(bool isLocalInput = true)
         {
@@ -242,7 +227,7 @@ namespace OOP_GAME.BL
                 NetworkManager.Instance.SendMessage($"MOVE:{direction}");
             }
 
-            CurrentTank.X += direction * 3f; // just move X, physics snaps Y
+            CurrentTank.X += direction * 3f; 
             CurrentTank.Fuel -= 1;
         }
 
@@ -319,7 +304,7 @@ namespace OOP_GAME.BL
                 }
             }
 
-            // chance to spawn a supply crate (host decides)
+            
             if (CurrentSession.Instance.IsHost && _crateRng.NextDouble() < 0.25)
             {
                 int crateX = _crateRng.Next(80, PanelWidth - 80);
@@ -418,25 +403,24 @@ namespace OOP_GAME.BL
             }
             catch
             {
-                // ignore parsing errors
+                
             }
         }
 
         private void GetBarrelTip(Tank tank, out float tipX, out float tipY)
         {
             float centerX = tank.X + tank.Width / 2f;
-            float centerY = tank.Y + tank.Height / 3f; // same pivot as DrawBarrel
-
+            float centerY = tank.Y + tank.Height / 3f;
             double rad = tank.BarrelAngle * Math.PI / 180.0;
             float barrelLength = tank.Width / 2f;
 
             tipX = centerX + (float)(Math.Cos(rad) * barrelLength);
-            tipY = centerY - (float)(Math.Sin(rad) * barrelLength); // minus = up
+            tipY = centerY - (float)(Math.Sin(rad) * barrelLength);
         }
 
-        // ─────────────────────────────────────────────────────────────
-        //  DEATH CHECK
-        // ─────────────────────────────────────────────────────────────
+        
+        
+        
 
         private void CheckDeaths()
         {
@@ -444,13 +428,13 @@ namespace OOP_GAME.BL
             {
                 if (tank.Health <= 0 && tank.IsAlive)
                 {
-                    // mark as dead by setting health to 0
+                    
                     tank.Health = 0;
                     OnTankDied?.Invoke(tank);
                 }
             }
 
-            // check if only one team left alive
+            
             var aliveTeams = Tanks
                 .Where(t => t.IsAlive)
                 .Select(t => t.TeamId)
@@ -466,9 +450,6 @@ namespace OOP_GAME.BL
             }
         }
 
-        // ─────────────────────────────────────────────────────────────
-        //  SUPPLY CRATES
-        // ─────────────────────────────────────────────────────────────
 
         private void SpawnCrate(int x, CrateType type)
         {
@@ -485,7 +466,6 @@ namespace OOP_GAME.BL
 
                 crate.Update(Ground);
 
-                // check collection by any alive tank
                 if (crate.HasLanded)
                 {
                     foreach (var tank in Tanks)
@@ -509,25 +489,19 @@ namespace OOP_GAME.BL
             {
                 tank.Health = Math.Min(tank.Health + 30, tank.MaxHealth);
             }
-            else // Ammo
+            else 
             {
                 foreach (var weapon in tank.WeaponInventory)
                 {
-                    if (weapon.Ammo > 0) // only add to limited-ammo weapons
+                    if (weapon.Ammo > 0) 
                         weapon.Ammo += 1;
                 }
             }
             OnCrateCollected?.Invoke(crate, tank);
         }
 
-        // ─────────────────────────────────────────────────────────────
-        //  TRAJECTORY PREVIEW
-        // ─────────────────────────────────────────────────────────────
 
-        /// <summary>
-        /// Returns a list of predicted trajectory points for the aiming dots.
-        /// Uses the same physics as projectile flight.
-        /// </summary>
+x
         public List<PointF> GetTrajectoryPreview(int numDots = 15)
         {
             var points = new List<PointF>();
@@ -544,13 +518,13 @@ namespace OOP_GAME.BL
             float px = tipX, py = tipY;
             for (int i = 0; i < numDots; i++)
             {
-                // step physics (same constants as PhysicsEngine)
+
                 vy += 0.4f;           // Gravity
                 vx += _physics.WindStrength; // Wind
                 px += vx;
                 py += vy;
 
-                // stop if below ground
+                
                 int ix = (int)Math.Max(0, Math.Min(px, PanelWidth - 1));
                 if (ix >= 0 && ix < Ground.Length && py >= Ground[ix])
                     break;
@@ -560,9 +534,6 @@ namespace OOP_GAME.BL
             return points;
         }
 
-        // ─────────────────────────────────────────────────────────────
-        //  CLEANUP
-        // ─────────────────────────────────────────────────────────────
 
         public void StopGame()
         {
