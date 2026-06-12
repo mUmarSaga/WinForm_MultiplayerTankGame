@@ -6,15 +6,14 @@ A 2D turn-based artillery shooter built in **C# Windows Forms**, inspired by cla
 
 ## 📸 Screenshots
 
-> _Add screenshots here_
 
 | Main Menu | Gameplay |
 |-----------|----------|
-| ![Menu](screenshots/menu.png) | ![Game](screenshots/game.png) |
+| ![Menu](snaps/mainMenu.PNG) | ![Game](snaps/game.PNG) |
 
-| Garage / Tank Selection | Game Over |
-|-------------------------|-----------|
-| ![Garage](screenshots/garage.png) | ![GameOver](screenshots/gameover.png) |
+| Garage / Tank Selection | 
+|-------------------------|
+| ![Garage](snaps/garage.PNG) | 
 
 ---
 
